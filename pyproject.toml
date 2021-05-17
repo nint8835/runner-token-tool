@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "runner_token_tool"
+version = "0.1.0"
+description = "Tool for generating tokens for managing GitHub Actions Self-hosted Runners"
+authors = ["Riley Flynn <riley@rileyflynn.me>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.25.1"
+typer = "^0.3.2"
+
+[tool.poetry.dev-dependencies]
+black = "^21.5b1"
+flake8 = "^3.9.2"
+isort = "^5.8.0"
+mypy = "^0.812"
+flake8-isort = "^4.0.0"
+nox = "^2020.12.31"
+nox-poetry = "^0.8.5"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
