@@ -20,6 +20,9 @@ flake8-isort = "^4.0.0"
 nox = "^2020.12.31"
 nox-poetry = "^0.8.5"
 
+[tool.poetry.scripts]
+runner-token-tool = "runner_token_tool:app"
+
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
