@@ -2,7 +2,9 @@ use chrono::{Duration, Utc};
 use clap::{crate_version, AppSettings, Clap, ValueHint};
 use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{fmt, path::PathBuf};
+
+mod resp_types;
 
 #[derive(Debug, Clap, PartialEq)]
 enum TokenType {
@@ -36,18 +38,22 @@ struct AppTokenClaims {
     iss: String,
 }
 
-fn main() {
+struct Error(String);
+
+impl fmt::Debug for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+fn main() -> Result<(), Error> {
     let opts: Opts = Opts::parse();
 
-    let private_key = match std::fs::read(opts.private_key_path) {
-        Ok(private_key_bytes) => {
-            EncodingKey::from_rsa_pem(&private_key_bytes).expect("Unable to create encoding key")
-        }
-        Err(e) => {
-            eprintln!("Unable to read private key file: {}", e);
-            std::process::exit(1);
-        }
-    };
+    let private_key_bytes = std::fs::read(opts.private_key_path.to_owned())
+        .map_err(|e| Error(format!("Unable to read private key file: {}", e)))?;
+
+    let private_key = EncodingKey::from_rsa_pem(&private_key_bytes)
+        .map_err(|e| Error(format!("Unable to create RSA encoding key: {}", e)))?;
 
     let app_token = encode(
         &Header::new(Algorithm::RS256),
@@ -60,11 +66,62 @@ fn main() {
                 .checked_sub_signed(Duration::seconds(10))
                 .unwrap()
                 .timestamp() as usize,
-            iss: opts.app_id,
+            iss: opts.app_id.to_owned(),
         },
         &private_key,
     )
     .expect("Failed to create JWT");
 
-    println!("Generated JWT: {}", app_token)
+    let client = reqwest::blocking::Client::new();
+
+    let installations: Vec<resp_types::Installation> = client
+        .get("https://api.github.com/app/installations")
+        .header("Accept", "application/vnd.github.v3+json")
+        .header("Authorization", format!("Bearer {}", app_token))
+        .header(
+            "User-Agent",
+            format!(
+                "runner-token-tool/{} (https://github.com/nint8835/runner-token-tool)",
+                crate_version!()
+            ),
+        )
+        .send()
+        .map_err(|e| Error(format!("Failed to request app installations: {}", e)))?
+        .json()
+        .map_err(|e| {
+            Error(format!(
+                "Failed to deserialize installations response: {}",
+                e
+            ))
+        })?;
+
+    let installation = installations
+        .iter()
+        .find(|&installation| match &installation.account {
+            resp_types::Account::User(org) => &org.login == &opts.org_name,
+            _ => false,
+        })
+        .ok_or(Error(
+            "No installation matching that organization name could be found.".to_string(),
+        ))?;
+
+    let installation_token: resp_types::InstallationToken = client
+        .post(installation.access_tokens_url.to_owned())
+        .header("Accept", "application/vnd.github.v3+json")
+        .header("Authorization", format!("Bearer {}", app_token))
+        .header(
+            "User-Agent",
+            format!(
+                "runner-token-tool/{} (https://github.com/nint8835/runner-token-tool)",
+                crate_version!()
+            ),
+        )
+        .send()
+        .map_err(|e| Error(format!("Failed to request installation token: {}", e)))?
+        .json()
+        .map_err(|e| Error(format!("Failed to deserialize token response: {}", e)))?;
+
+    println!("{:?}", installation_token.token);
+
+    Ok(())
 }
