@@ -105,7 +105,7 @@ fn main() -> Result<(), Error> {
             "No installation matching that organization name could be found.".to_string(),
         ))?;
 
-    let installation_token: resp_types::InstallationToken = client
+    let installation_token: resp_types::TokenResp = client
         .post(installation.access_tokens_url.to_owned())
         .header("Accept", "application/vnd.github.v3+json")
         .header("Authorization", format!("Bearer {}", app_token))
@@ -121,7 +121,40 @@ fn main() -> Result<(), Error> {
         .json()
         .map_err(|e| Error(format!("Failed to deserialize token response: {}", e)))?;
 
-    println!("{:?}", installation_token.token);
+    let token_endpoint = match opts.token_type {
+        TokenType::REGISTRATION => "actions/runners/registration-token",
+        TokenType::REMOVAL => "actions/runners/remove-token",
+    };
+
+    let token_resp: resp_types::TokenResp = client
+        .post(format!(
+            "https://api.github.com/orgs/{org_name}/{endpoint}",
+            org_name = opts.org_name,
+            endpoint = token_endpoint
+        ))
+        .header("Accept", "application/vnd.github.v3+json")
+        .header(
+            "Authorization",
+            format!("Bearer {}", installation_token.token),
+        )
+        .header(
+            "User-Agent",
+            format!(
+                "runner-token-tool/{} (https://github.com/nint8835/runner-token-tool)",
+                crate_version!()
+            ),
+        )
+        .send()
+        .map_err(|e| Error(format!("Failed to request runner token: {}", e)))?
+        .json()
+        .map_err(|e| {
+            Error(format!(
+                "Failed to deserialize runner token response: {}",
+                e
+            ))
+        })?;
+
+    println!("{}", token_resp.token);
 
     Ok(())
 }

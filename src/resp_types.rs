@@ -22,6 +22,6 @@ pub struct Installation {
 }
 
 #[derive(Deserialize, Debug)]
-pub struct InstallationToken {
+pub struct TokenResp {
     pub token: String,
 }
