@@ -2,19 +2,6 @@
 
 Tool for automatically generating tokens for managing GitHub Actions Self-hosted Runners, without the usage of machine users or Personal Access Tokens.
 
-## Installation
-
-### Installation from source
-
-1. Create and activate a new virtualenv.
-   - `python3 -m venv venv`
-   - `source venv/bin/activate`
-   - You can also use an alternate virtualenv management tool, such as [pyenv-virtualenv](https://github.com/pyenv/pyenv-virtualenv).
-2. Install Poetry.
-   - `pip install poetry`
-3. Install `runner-token-tool`.
-   - `poetry install`
-
 ## Configuration
 
 1. Create a new GitHub App from the developer settings in either your account, or the target organization.
